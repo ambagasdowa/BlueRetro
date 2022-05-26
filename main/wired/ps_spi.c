@@ -330,39 +330,6 @@ static void ps_cmd_rsp_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
             *rsp++ = 0x5A;
             break;
         }
-        case 0x43:
-        {
-            if (port->dev_id[id] == 0xF3) {
-                memset(rsp, 0x00, 6);
-                break;
-            }
-            /* Fallthrough to 0x42 if not in cfg mode */
-        }
-        __attribute__ ((fallthrough));
-        case 0x42:
-        {
-            uint32_t size = (port->dev_id[id] & 0xF) * 2;
-            if (size < 6) {
-                size = 6;
-            }
-            switch (port->dev_type[id]) {
-                case DEV_PSX_PS_2_KB_MOUSE_ADAPTER:
-                {
-                    uint32_t len = 0;
-                    memset(rsp, 0x00, size);
-                    (void)kbmon_get_code(id + port->mt_first_port, rsp, &len);
-                    break;
-                }
-                case DEV_PSX_MOUSE:
-                    memcpy(rsp, wired_adapter.data[id + port->mt_first_port].output, 2);
-                    load_mouse_axes(id + port->mt_first_port, &rsp[2]);
-                    break;
-                default:
-                    memcpy(rsp, wired_adapter.data[id + port->mt_first_port].output, size);
-                    break;
-            }
-            break;
-        }
         case 0x44:
         {
             memset(rsp, 0x00, 6);
@@ -428,8 +395,43 @@ static void ps_cmd_rsp_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t cmd, 
             rsp[5] = 0x5A;
             break;
         }
+        case 0x43:
+        {
+            if (port->dev_id[id] == 0xF3) {
+                memset(rsp, 0x00, 6);
+                break;
+            }
+            /* Fallthrough to 0x42 if not in cfg mode */
+        }
+        __attribute__ ((fallthrough));
+        case 0x42:
         default:
-            ets_printf("%02X: Unk cmd: 0x%02X\n", id, cmd);
+        {
+            uint32_t size = (port->dev_id[id] & 0xF) * 2;
+            if (size < 6) {
+                size = 6;
+            }
+            switch (port->dev_type[id]) {
+                case DEV_PSX_PS_2_KB_MOUSE_ADAPTER:
+                {
+                    uint32_t len = 0;
+                    memset(rsp, 0x00, size);
+                    (void)kbmon_get_code(id + port->mt_first_port, rsp, &len);
+                    break;
+                }
+                case DEV_PSX_MOUSE:
+                    memcpy(rsp, wired_adapter.data[id + port->mt_first_port].output, 2);
+                    load_mouse_axes(id + port->mt_first_port, &rsp[2]);
+                    break;
+                default:
+                    memcpy(rsp, wired_adapter.data[id + port->mt_first_port].output, size);
+                    break;
+            }
+            if (cmd != 0x42 && cmd != 0x43) {
+                ets_printf("# P%d Ukn: %02X\n", id, cmd);
+            }
+            break;
+        }
     }
 }
 
@@ -446,6 +448,7 @@ static void ps_cmd_const_rsp_hdlr(struct ps_ctrl_port *port, uint8_t id, uint8_t
             break;
         }
         case 0x4C:
+        default:
         {
             /* Handle 2nd offset only here */
             *rsp++ = 0x00;
